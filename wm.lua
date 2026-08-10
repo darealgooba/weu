@@ -1,5 +1,5 @@
---// Wreck Miner
---// LocalScript
+--// WRECK MINER
+--// Full updated version
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -9,7 +9,7 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
 --==================================================
--- CONFIGURATION
+-- CONFIG
 --==================================================
 
 local INVENTORY_LIMIT = 85
@@ -34,7 +34,7 @@ local RESOURCE_NAMES = {
 }
 
 --==================================================
--- TARGET TIERS
+-- SETTINGS
 --==================================================
 
 local TargetTiers = {
@@ -44,6 +44,9 @@ local TargetTiers = {
 	[4] = true
 }
 
+local PrioritizeHigherTiers = false
+local CurrentWalkSpeed = DEFAULT_WALKSPEED
+
 --==================================================
 -- STATE
 --==================================================
@@ -52,14 +55,15 @@ local Enabled = false
 local State = "Idle"
 local TargetWreck = nil
 
-local CurrentWalkSpeed = DEFAULT_WALKSPEED
-
--- Higher tiers are NOT prioritized by default.
-local PrioritizeHigherTiers = false
-
 --==================================================
 -- GUI
 --==================================================
+
+local ExistingGui = PlayerGui:FindFirstChild("WreckMinerGui")
+
+if ExistingGui then
+	ExistingGui:Destroy()
+end
 
 local Gui = Instance.new("ScreenGui")
 Gui.Name = "WreckMinerGui"
@@ -83,10 +87,10 @@ local PanelCorner = Instance.new("UICorner")
 PanelCorner.CornerRadius = UDim.new(0, 12)
 PanelCorner.Parent = Panel
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(65, 65, 75)
-Stroke.Thickness = 1.5
-Stroke.Parent = Panel
+local PanelStroke = Instance.new("UIStroke")
+PanelStroke.Color = Color3.fromRGB(65, 65, 75)
+PanelStroke.Thickness = 1.5
+PanelStroke.Parent = Panel
 
 --==================================================
 -- TITLE
@@ -121,7 +125,7 @@ Status.TextXAlignment = Enum.TextXAlignment.Left
 Status.Parent = Panel
 
 --==================================================
--- MAIN ENABLE SWITCH
+-- MAIN SWITCH
 --==================================================
 
 local Switch = Instance.new("Frame")
@@ -159,7 +163,7 @@ Toggle.ZIndex = 10
 Toggle.Parent = Switch
 
 --==================================================
--- WALK SPEED LABEL
+-- WALK SPEED
 --==================================================
 
 local WalkSpeedLabel = Instance.new("TextLabel")
@@ -173,10 +177,6 @@ WalkSpeedLabel.TextSize = 14
 WalkSpeedLabel.Font = Enum.Font.GothamMedium
 WalkSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
 WalkSpeedLabel.Parent = Panel
-
---==================================================
--- WALK SPEED INPUT
---==================================================
 
 local WalkSpeedInput = Instance.new("TextBox")
 WalkSpeedInput.Name = "WalkSpeedInput"
@@ -203,17 +203,17 @@ WalkSpeedStroke.Thickness = 1
 WalkSpeedStroke.Parent = WalkSpeedInput
 
 --==================================================
--- TIER TOGGLE CREATOR
+-- TIER SWITCHES
 --==================================================
 
 local TierSwitches = {}
 
-local function createTierToggle(Tier, YPosition)
+local function CreateTierSwitch(Tier, Y)
 
 	local Label = Instance.new("TextLabel")
 	Label.Name = "Tier" .. Tier .. "Label"
 	Label.Size = UDim2.fromOffset(150, 25)
-	Label.Position = UDim2.fromOffset(14, YPosition)
+	Label.Position = UDim2.fromOffset(14, Y)
 	Label.BackgroundTransparency = 1
 	Label.Text = "Target Tier " .. Tier
 	Label.TextColor3 = Color3.fromRGB(220, 220, 225)
@@ -222,101 +222,80 @@ local function createTierToggle(Tier, YPosition)
 	Label.TextXAlignment = Enum.TextXAlignment.Left
 	Label.Parent = Panel
 
-	local Button = Instance.new("Frame")
-	Button.Name = "Tier" .. Tier .. "Switch"
-	Button.Size = UDim2.fromOffset(48, 26)
-	Button.Position = UDim2.new(1, -64, 0, YPosition - 1)
-	Button.BackgroundColor3 = Color3.fromRGB(55, 175, 90)
-	Button.BorderSizePixel = 0
-	Button.Parent = Panel
+	local Frame = Instance.new("Frame")
+	Frame.Name = "Tier" .. Tier .. "Switch"
+	Frame.Size = UDim2.fromOffset(48, 26)
+	Frame.Position = UDim2.new(1, -64, 0, Y - 1)
+	Frame.BackgroundColor3 = Color3.fromRGB(55, 175, 90)
+	Frame.BorderSizePixel = 0
+	Frame.Parent = Panel
 
 	local Corner = Instance.new("UICorner")
 	Corner.CornerRadius = UDim.new(1, 0)
-	Corner.Parent = Button
+	Corner.Parent = Frame
 
-	local Knob = Instance.new("Frame")
-	Knob.Name = "Knob"
-	Knob.Size = UDim2.fromOffset(20, 20)
-	Knob.Position = UDim2.new(1, -23, 0, 3)
-	Knob.BackgroundColor3 = Color3.fromRGB(235, 235, 240)
-	Knob.BorderSizePixel = 0
-	Knob.Parent = Button
+	local TierKnob = Instance.new("Frame")
+	TierKnob.Name = "Knob"
+	TierKnob.Size = UDim2.fromOffset(20, 20)
+	TierKnob.Position = UDim2.new(1, -23, 0, 3)
+	TierKnob.BackgroundColor3 = Color3.fromRGB(235, 235, 240)
+	TierKnob.BorderSizePixel = 0
+	TierKnob.Parent = Frame
 
-	local KnobCorner = Instance.new("UICorner")
-	KnobCorner.CornerRadius = UDim.new(1, 0)
-	KnobCorner.Parent = Knob
+	local TierKnobCorner = Instance.new("UICorner")
+	TierKnobCorner.CornerRadius = UDim.new(1, 0)
+	TierKnobCorner.Parent = TierKnob
 
-	local ClickButton = Instance.new("TextButton")
-	ClickButton.Name = "Button"
-	ClickButton.Size = UDim2.fromScale(1, 1)
-	ClickButton.BackgroundTransparency = 1
-	ClickButton.BorderSizePixel = 0
-	ClickButton.Text = ""
-	ClickButton.AutoButtonColor = false
-	ClickButton.ZIndex = 10
-	ClickButton.Parent = Button
+	local Button = Instance.new("TextButton")
+	Button.Name = "Button"
+	Button.Size = UDim2.fromScale(1, 1)
+	Button.BackgroundTransparency = 1
+	Button.BorderSizePixel = 0
+	Button.Text = ""
+	Button.AutoButtonColor = false
+	Button.ZIndex = 10
+	Button.Parent = Frame
 
 	TierSwitches[Tier] = {
-		Frame = Button,
-		Knob = Knob,
-		Button = ClickButton
+		Frame = Frame,
+		Knob = TierKnob,
+		Button = Button
 	}
 
-	ClickButton.Activated:Connect(function()
+	Button.Activated:Connect(function()
 
-		TargetTiers[Tier] =
-			not TargetTiers[Tier]
+		TargetTiers[Tier] = not TargetTiers[Tier]
 
 		if TargetTiers[Tier] then
 
-			Button.BackgroundColor3 =
-				Color3.fromRGB(
-					55,
-					175,
-					90
-				)
+			Frame.BackgroundColor3 =
+				Color3.fromRGB(55, 175, 90)
 
-			Knob.Position =
-				UDim2.new(
-					1,
-					-23,
-					0,
-					3
-				)
+			TierKnob.Position =
+				UDim2.new(1, -23, 0, 3)
 
 		else
 
-			Button.BackgroundColor3 =
-				Color3.fromRGB(
-					65,
-					65,
-					75
-				)
+			Frame.BackgroundColor3 =
+				Color3.fromRGB(65, 65, 75)
 
-			Knob.Position =
-				UDim2.fromOffset(
-					3,
-					3
-				)
+			TierKnob.Position =
+				UDim2.fromOffset(3, 3)
 
-			-- Abandon the current wreck if it
-			-- belongs to the disabled tier.
+			-- Force a new search if the current target
+			-- belongs to the tier that was disabled.
 			if TargetWreck then
 
-				local ParentTier =
-					TargetWreck.Parent
+				local Tiers = getWreckTiers()
 
-				if ParentTier then
+				if Tiers and Tiers[Tier] then
 
-					local TierNumber =
-						tonumber(
-							ParentTier.Name:match(
-								"%d+"
-							)
-						)
+					if TargetWreck:IsDescendantOf(
+						Tiers[Tier]
+					) then
 
-					if TierNumber == Tier then
 						TargetWreck = nil
+
 					end
 
 				end
@@ -329,17 +308,13 @@ local function createTierToggle(Tier, YPosition)
 
 end
 
---==================================================
--- CREATE TIER TOGGLES
---==================================================
-
-createTierToggle(1, 113)
-createTierToggle(2, 143)
-createTierToggle(3, 173)
-createTierToggle(4, 203)
+CreateTierSwitch(1, 113)
+CreateTierSwitch(2, 143)
+CreateTierSwitch(3, 173)
+CreateTierSwitch(4, 203)
 
 --==================================================
--- PRIORITY TOGGLE
+-- PRIORITIZE HIGHER TIERS
 --==================================================
 
 local PriorityLabel = Instance.new("TextLabel")
@@ -393,48 +368,30 @@ PriorityButton.Activated:Connect(function()
 	PrioritizeHigherTiers =
 		not PrioritizeHigherTiers
 
-	-- Force a new target so the changed
-	-- priority takes effect immediately.
 	TargetWreck = nil
 
 	if PrioritizeHigherTiers then
 
 		PrioritySwitch.BackgroundColor3 =
-			Color3.fromRGB(
-				55,
-				175,
-				90
-			)
+			Color3.fromRGB(55, 175, 90)
 
 		PriorityKnob.Position =
-			UDim2.new(
-				1,
-				-23,
-				0,
-				3
-			)
+			UDim2.new(1, -23, 0, 3)
 
 	else
 
 		PrioritySwitch.BackgroundColor3 =
-			Color3.fromRGB(
-				65,
-				65,
-				75
-			)
+			Color3.fromRGB(65, 65, 75)
 
 		PriorityKnob.Position =
-			UDim2.fromOffset(
-				3,
-				3
-			)
+			UDim2.fromOffset(3, 3)
 
 	end
 
 end)
 
 --==================================================
--- DRAG AREA
+-- DRAGGING
 --==================================================
 
 local DragArea = Instance.new("TextButton")
@@ -484,9 +441,7 @@ UserInputService.InputChanged:Connect(function(Input)
 
 	if Input.UserInputType ~=
 		Enum.UserInputType.MouseMovement then
-
 		return
-
 	end
 
 	local Delta =
@@ -503,17 +458,16 @@ UserInputService.InputChanged:Connect(function(Input)
 end)
 
 --==================================================
--- CHARACTER FUNCTIONS
+-- CHARACTER HELPERS
 --==================================================
 
-local function getCharacter()
+local function GetCharacter()
 	return Player.Character
 end
 
-local function getHumanoid()
+local function GetHumanoid()
 
-	local Character =
-		getCharacter()
+	local Character = GetCharacter()
 
 	if not Character then
 		return nil
@@ -525,10 +479,9 @@ local function getHumanoid()
 
 end
 
-local function getRoot()
+local function GetRoot()
 
-	local Character =
-		getCharacter()
+	local Character = GetCharacter()
 
 	if not Character then
 		return nil
@@ -541,13 +494,12 @@ local function getRoot()
 end
 
 --==================================================
--- WALKSPEED
+-- WALK SPEED
 --==================================================
 
-local function applyWalkSpeed()
+local function ApplyWalkSpeed()
 
-	local Humanoid =
-		getHumanoid()
+	local Humanoid = GetHumanoid()
 
 	if Humanoid then
 		Humanoid.WalkSpeed =
@@ -556,7 +508,7 @@ local function applyWalkSpeed()
 
 end
 
-local function setWalkSpeed(Value)
+local function SetWalkSpeed(Value)
 
 	if typeof(Value) ~= "number" then
 		return
@@ -566,22 +518,16 @@ local function setWalkSpeed(Value)
 		Value = 0
 	end
 
-	if Value ~= Value then
-		return
-	end
-
 	CurrentWalkSpeed = Value
 
-	applyWalkSpeed()
+	ApplyWalkSpeed()
 
 end
 
 WalkSpeedInput.FocusLost:Connect(function()
 
 	local Value =
-		tonumber(
-			WalkSpeedInput.Text
-		)
+		tonumber(WalkSpeedInput.Text)
 
 	if Value then
 
@@ -589,11 +535,7 @@ WalkSpeedInput.FocusLost:Connect(function()
 			Value = 0
 		end
 
-		if Value ~= Value then
-			Value = DEFAULT_WALKSPEED
-		end
-
-		setWalkSpeed(Value)
+		SetWalkSpeed(Value)
 
 		WalkSpeedInput.Text =
 			tostring(Value)
@@ -601,9 +543,7 @@ WalkSpeedInput.FocusLost:Connect(function()
 	else
 
 		WalkSpeedInput.Text =
-			tostring(
-				CurrentWalkSpeed
-			)
+			tostring(CurrentWalkSpeed)
 
 	end
 
@@ -622,10 +562,10 @@ Player.CharacterAdded:Connect(function(Character)
 end)
 
 --==================================================
--- POSITION
+-- POSITION HELPER
 --==================================================
 
-local function getPosition(Object)
+local function GetPosition(Object)
 
 	if not Object then
 		return nil
@@ -661,7 +601,7 @@ end
 -- GAME REFERENCES
 --==================================================
 
-local function getWreckTiers()
+local function GetWreckTiers()
 
 	local Containers =
 		workspace:FindFirstChild(
@@ -701,11 +641,11 @@ local function getWreckTiers()
 
 	local Tiers = {}
 
-	for TierNumber = 1, 4 do
+	for Tier = 1, 4 do
 
-		Tiers[TierNumber] =
+		Tiers[Tier] =
 			WreckContainer:FindFirstChild(
-				"Tier" .. TierNumber
+				"Tier" .. Tier
 			)
 
 	end
@@ -714,9 +654,7 @@ local function getWreckTiers()
 
 end
 
---==================================================
-
-local function getSeller()
+local function GetSeller()
 
 	local Containers =
 		workspace:FindFirstChild(
@@ -742,9 +680,7 @@ local function getSeller()
 
 end
 
---==================================================
-
-local function getWall()
+local function GetWall()
 
 	local Etc =
 		workspace:FindFirstChild(
@@ -762,47 +698,39 @@ local function getWall()
 end
 
 --==================================================
--- MOVEMENT
+-- STOP MOVEMENT
 --==================================================
 
-local function stopMovement()
+local function StopMovement()
 
-	local Humanoid =
-		getHumanoid()
-
-	local Root =
-		getRoot()
+	local Humanoid = GetHumanoid()
+	local Root = GetRoot()
 
 	if Humanoid and Root then
-
-		Humanoid:MoveTo(
-			Root.Position
-		)
-
+		Humanoid:MoveTo(Root.Position)
 	end
 
 end
 
-local function moveDirectlyTo(Position)
+--==================================================
+-- DIRECT MOVEMENT
+--==================================================
 
-	local Humanoid =
-		getHumanoid()
+local function MoveDirectlyTo(Position)
+
+	local Humanoid = GetHumanoid()
 
 	if Humanoid and Position then
-
-		Humanoid:MoveTo(
-			Position
-		)
-
+		Humanoid:MoveTo(Position)
 	end
 
 end
 
 --==================================================
--- GET WRECKS BY TIER
+-- WRECK LIST
 --==================================================
 
-local function getWrecksInTier(Tier)
+local function GetWrecksInTier(Tier)
 
 	local Wrecks = {}
 
@@ -810,69 +738,34 @@ local function getWrecksInTier(Tier)
 		return Wrecks
 	end
 
-	for _, NumberValue in
-		ipairs(Tier:GetChildren()) do
+	for _, Object in ipairs(
+		Tier:GetChildren()
+	) do
 
-		if NumberValue:IsA(
-			"NumberValue"
-		) then
+		local Wreck = nil
 
-			local Wreck =
-				NumberValue:FindFirstChild(
+		-- Preserve the existing WreckModel
+		-- lookup behavior.
+		if Object:IsA("NumberValue")
+			or Object:IsA("IntValue") then
+
+			Wreck =
+				Object:FindFirstChild(
 					"WreckModel"
 				)
 
-			if Wreck
-				and Wreck:IsA("Model")
-				and getPosition(Wreck) then
+		else
 
-				table.insert(
-					Wrecks,
-					Wreck
+			Wreck =
+				Object:FindFirstChild(
+					"WreckModel"
 				)
 
-			end
-
 		end
 
-	end
-
-	return Wrecks
-
-end
-
---==================================================
--- WRECK SEARCH
---==================================================
-
-local function getWrecks()
-
-	local Tiers =
-		getWreckTiers()
-
-	if not Tiers then
-		return {}
-	end
-
-	local Wrecks = {}
-
-	for TierNumber = 1, 4 do
-
-		if not TargetTiers[TierNumber] then
-			continue
-		end
-
-		local Tier =
-			Tiers[TierNumber]
-
-		if not Tier then
-			continue
-		end
-
-		for _, Wreck in
-			ipairs(
-				getWrecksInTier(Tier)
-			) do
+		if Wreck
+			and Wreck:IsA("Model")
+			and GetPosition(Wreck) then
 
 			table.insert(
 				Wrecks,
@@ -888,10 +781,10 @@ local function getWrecks()
 end
 
 --==================================================
--- VALID WRECK
+-- WRECK VALIDATION
 --==================================================
 
-local function isValidWreck(Wreck)
+local function IsValidWreck(Wreck)
 
 	if not Wreck then
 		return false
@@ -905,25 +798,24 @@ local function isValidWreck(Wreck)
 		return false
 	end
 
-	if not getPosition(Wreck) then
+	if not GetPosition(Wreck) then
 		return false
 	end
 
 	local Tiers =
-		getWreckTiers()
+		GetWreckTiers()
 
 	if not Tiers then
 		return false
 	end
 
-	for TierNumber = 1, 4 do
+	for Tier = 1, 4 do
 
-		local Tier =
-			Tiers[TierNumber]
-
-		if Tier
-			and TargetTiers[TierNumber]
-			and Wreck:IsDescendantOf(Tier) then
+		if TargetTiers[Tier]
+			and Tiers[Tier]
+			and Wreck:IsDescendantOf(
+				Tiers[Tier]
+			) then
 
 			return true
 
@@ -939,10 +831,9 @@ end
 -- NEAREST WRECK IN TIER
 --==================================================
 
-local function getNearestWreckInTier(Tier)
+local function GetNearestWreckInTier(Tier)
 
-	local Root =
-		getRoot()
+	local Root = GetRoot()
 
 	if not Root or not Tier then
 		return nil
@@ -951,20 +842,20 @@ local function getNearestWreckInTier(Tier)
 	local Nearest = nil
 	local NearestDistance = math.huge
 
-	for _, Wreck in
-		ipairs(
-			getWrecksInTier(Tier)
-		) do
+	for _, Wreck in ipairs(
+		GetWrecksInTier(Tier)
+	) do
 
 		local Position =
-			getPosition(Wreck)
+			GetPosition(Wreck)
 
 		if Position then
 
-			local Distance = (
-				Root.Position -
-				Position
-			).Magnitude
+			local Distance =
+				(
+					Root.Position -
+					Position
+				).Magnitude
 
 			if Distance <
 				NearestDistance then
@@ -986,50 +877,30 @@ local function getNearestWreckInTier(Tier)
 end
 
 --==================================================
--- NEAREST WRECK
+-- FIND WRECK
 --==================================================
 
-local function getNearestWreck()
-
-	local Root =
-		getRoot()
-
-	if not Root then
-		return nil
-	end
+local function GetNearestWreck()
 
 	local Tiers =
-		getWreckTiers()
+		GetWreckTiers()
 
 	if not Tiers then
 		return nil
 	end
 
-	--==================================================
-	-- HIGHER TIER PRIORITY
-	--==================================================
-
+	-- Higher-tier priority.
 	if PrioritizeHigherTiers then
 
-		-- Start at Tier 4 and work downward.
-		-- The first enabled tier containing a
-		-- wreck wins.
-		for TierNumber = 4, 1, -1 do
+		for Tier = 4, 1, -1 do
 
-			if not TargetTiers[TierNumber] then
-				continue
-			end
-
-			local Tier =
-				Tiers[TierNumber]
-
-			if not Tier then
+			if not TargetTiers[Tier] then
 				continue
 			end
 
 			local Wreck =
-				getNearestWreckInTier(
-					Tier
+				GetNearestWreckInTier(
+					Tiers[Tier]
 				)
 
 			if Wreck then
@@ -1042,41 +913,45 @@ local function getNearestWreck()
 
 	end
 
-	--==================================================
-	-- NORMAL NEAREST-WRECK MODE
-	--==================================================
+	-- Normal nearest-wreck behavior.
+	local Root = GetRoot()
+
+	if not Root then
+		return nil
+	end
 
 	local Nearest = nil
 	local NearestDistance = math.huge
 
-	for TierNumber = 1, 4 do
+	for Tier = 1, 4 do
 
-		if not TargetTiers[TierNumber] then
+		if not TargetTiers[Tier] then
 			continue
 		end
 
-		local Tier =
-			Tiers[TierNumber]
+		local TierFolder =
+			Tiers[Tier]
 
-		if not Tier then
+		if not TierFolder then
 			continue
 		end
 
-		local Wrecks =
-			getWrecksInTier(Tier)
-
-		for _, Wreck in
-			ipairs(Wrecks) do
+		for _, Wreck in ipairs(
+			GetWrecksInTier(
+				TierFolder
+			)
+		) do
 
 			local Position =
-				getPosition(Wreck)
+				GetPosition(Wreck)
 
 			if Position then
 
-				local Distance = (
-					Root.Position -
-					Position
-				).Magnitude
+				local Distance =
+					(
+						Root.Position -
+						Position
+					).Magnitude
 
 				if Distance <
 					NearestDistance then
@@ -1103,7 +978,7 @@ end
 -- INVENTORY
 --==================================================
 
-local function getInventory()
+local function GetInventory()
 
 	local DataFolder =
 		Player:FindFirstChild(
@@ -1120,10 +995,10 @@ local function getInventory()
 
 end
 
-local function getResourceAmount(Name)
+local function GetResourceAmount(Name)
 
 	local Inventory =
-		getInventory()
+		GetInventory()
 
 	if not Inventory then
 		return 0
@@ -1147,15 +1022,16 @@ local function getResourceAmount(Name)
 
 end
 
-local function getTotalResources()
+local function GetTotalResources()
 
 	local Total = 0
 
-	for _, Name in
-		ipairs(RESOURCE_NAMES) do
+	for _, Name in ipairs(
+		RESOURCE_NAMES
+	) do
 
 		Total +=
-			getResourceAmount(Name)
+			GetResourceAmount(Name)
 
 	end
 
@@ -1167,10 +1043,9 @@ end
 -- PATH CREATION
 --==================================================
 
-local function createPath(Destination)
+local function CreatePath(Destination)
 
-	local Root =
-		getRoot()
+	local Root = GetRoot()
 
 	if not Root then
 		return nil
@@ -1213,45 +1088,35 @@ local function createPath(Destination)
 end
 
 --==================================================
--- NORMAL PATHFINDING
+-- STANDARD PATHFINDING
 --==================================================
 
-local function pathfindTo(
+local function PathfindTo(
 	Destination,
 	ArrivalDistance
 )
 
 	while Enabled do
 
-		local Humanoid =
-			getHumanoid()
+		local Humanoid = GetHumanoid()
+		local Root = GetRoot()
 
-		local Root =
-			getRoot()
-
-		if not Humanoid
-			or not Root then
-
+		if not Humanoid or not Root then
 			return false
-
 		end
 
 		if (
 			Root.Position -
 			Destination
-		).Magnitude <=
-			ArrivalDistance then
+		).Magnitude <= ArrivalDistance then
 
-			stopMovement()
-
+			StopMovement()
 			return true
 
 		end
 
 		local Path =
-			createPath(
-				Destination
-			)
+			CreatePath(Destination)
 
 		if not Path then
 
@@ -1278,21 +1143,22 @@ local function pathfindTo(
 				return false
 			end
 
-			Humanoid =
-				getHumanoid()
+			Humanoid = GetHumanoid()
+			Root = GetRoot()
 
-			Root =
-				getRoot()
-
-			if not Humanoid
-				or not Root then
-
+			if not Humanoid or not Root then
 				return false
-
 			end
 
 			local Waypoint =
 				Waypoints[Index]
+
+			if Waypoint.Action ==
+				Enum.PathWaypointAction.Jump then
+
+				Humanoid.Jump = true
+
+			end
 
 			Humanoid:MoveTo(
 				Waypoint.Position
@@ -1303,16 +1169,17 @@ local function pathfindTo(
 
 			while Enabled do
 
-				Humanoid =
-					getHumanoid()
+				Humanoid = GetHumanoid()
+				Root = GetRoot()
 
-				Root =
-					getRoot()
-
-				if not Humanoid
-					or not Root then
-
+				if not Humanoid or not Root then
 					return false
+				end
+
+				if Waypoint.Action ==
+					Enum.PathWaypointAction.Jump then
+
+					Humanoid.Jump = true
 
 				end
 
@@ -1320,10 +1187,11 @@ local function pathfindTo(
 					Waypoint.Position
 				)
 
-				local Distance = (
-					Root.Position -
-					Waypoint.Position
-				).Magnitude
+				local Distance =
+					(
+						Root.Position -
+						Waypoint.Position
+					).Magnitude
 
 				if Distance <= 3 then
 					break
@@ -1337,24 +1205,23 @@ local function pathfindTo(
 
 				end
 
+				if (
+					Root.Position -
+					Destination
+				).Magnitude <=
+					ArrivalDistance then
+
+					StopMovement()
+					return true
+
+				end
+
 				task.wait(0.05)
 
 			end
 
 			if Failed then
 				break
-			end
-
-			if (
-				Root.Position -
-				Destination
-			).Magnitude <=
-				ArrivalDistance then
-
-				stopMovement()
-
-				return true
-
 			end
 
 		end
@@ -1368,10 +1235,10 @@ local function pathfindTo(
 end
 
 --==================================================
--- SELLER PATHFINDING + JUMPING
+-- PATHFINDING TO SELLER
 --==================================================
 
-local function pathfindToSeller(
+local function PathfindToSeller(
 	Destination,
 	ArrivalDistance
 )
@@ -1383,15 +1250,15 @@ local function pathfindToSeller(
 		while Jumping and Enabled do
 
 			local Humanoid =
-				getHumanoid()
+				GetHumanoid()
 
 			if Humanoid then
+
+				Humanoid.Jump = true
 
 				Humanoid:ChangeState(
 					Enum.HumanoidStateType.Jumping
 				)
-
-				Humanoid.Jump = true
 
 			end
 
@@ -1404,7 +1271,7 @@ local function pathfindToSeller(
 	end)
 
 	local Result =
-		pathfindTo(
+		PathfindTo(
 			Destination,
 			ArrivalDistance
 		)
@@ -1416,50 +1283,13 @@ local function pathfindToSeller(
 end
 
 --==================================================
--- GO TO SELLER
+-- NORMAL MOVEMENT TO WALL
 --==================================================
 
-local function goToSeller()
-
-	local Seller =
-		getSeller()
-
-	if not Seller then
-
-		Status.Text =
-			"Seller not found"
-
-		return false
-
-	end
-
-	local Position =
-		getPosition(Seller)
-
-	if not Position then
-		return false
-	end
-
-	Status.Text =
-		"Going to seller..."
-
-	stopMovement()
-
-	return pathfindToSeller(
-		Position,
-		SELLER_ARRIVAL_DISTANCE
-	)
-
-end
-
---==================================================
--- RETURN TO WALL
---==================================================
-
-local function goToWall()
+local function MoveToWallNormally()
 
 	local Wall =
-		getWall()
+		GetWall()
 
 	if not Wall then
 
@@ -1471,7 +1301,98 @@ local function goToWall()
 	end
 
 	local Position =
-		getPosition(Wall)
+		GetPosition(Wall)
+
+	if not Position then
+		return false
+	end
+
+	local Root =
+		GetRoot()
+
+	if not Root then
+		return false
+	end
+
+	local Distance =
+		(
+			Root.Position -
+			Position
+		).Magnitude
+
+	if Distance <=
+		WALL_ARRIVAL_DISTANCE then
+
+		StopMovement()
+
+		return true
+
+	end
+
+	Status.Text =
+		"Going to tunnel..."
+
+	MoveDirectlyTo(Position)
+
+	return false
+
+end
+
+--==================================================
+-- GO TO SELLER
+--==================================================
+
+local function GoToSeller()
+
+	local Seller =
+		GetSeller()
+
+	if not Seller then
+
+		Status.Text =
+			"Seller not found"
+
+		return false
+
+	end
+
+	local Position =
+		GetPosition(Seller)
+
+	if not Position then
+		return false
+	end
+
+	Status.Text =
+		"Going to seller..."
+
+	return PathfindToSeller(
+		Position,
+		SELLER_ARRIVAL_DISTANCE
+	)
+
+end
+
+--==================================================
+-- RETURN TO WALL
+--==================================================
+
+local function ReturnToWall()
+
+	local Wall =
+		GetWall()
+
+	if not Wall then
+
+		Status.Text =
+			"Wall not found"
+
+		return false
+
+	end
+
+	local Position =
+		GetPosition(Wall)
 
 	if not Position then
 		return false
@@ -1480,11 +1401,7 @@ local function goToWall()
 	Status.Text =
 		"Returning to tunnel..."
 
-	stopMovement()
-
-	-- Normal pathfinding.
-	-- No jumping.
-	return pathfindTo(
+	return PathfindTo(
 		Position,
 		WALL_ARRIVAL_DISTANCE
 	)
@@ -1492,18 +1409,15 @@ local function goToWall()
 end
 
 --==================================================
--- WAIT FOR SELLING
+-- SELLING WAIT
 --==================================================
 
-local function waitForSelling()
-
-	Status.Text =
-		"Waiting for sale..."
+local function WaitForSelling()
 
 	while Enabled do
 
 		local Total =
-			getTotalResources()
+			GetTotalResources()
 
 		Status.Text =
 			"Selling: " ..
@@ -1534,25 +1448,10 @@ Toggle.Activated:Connect(function()
 
 	if Enabled then
 
-		State =
-			"Mining"
+		State = "Mining"
 
 		Status.Text =
 			"Searching..."
-
-	else
-
-		State =
-			"Idle"
-
-		Status.Text =
-			"Disabled"
-
-		stopMovement()
-
-	end
-
-	if Enabled then
 
 		Switch.BackgroundColor3 =
 			Color3.fromRGB(
@@ -1570,6 +1469,13 @@ Toggle.Activated:Connect(function()
 			)
 
 	else
+
+		State = "Idle"
+
+		Status.Text =
+			"Disabled"
+
+		StopMovement()
 
 		Switch.BackgroundColor3 =
 			Color3.fromRGB(
@@ -1608,22 +1514,23 @@ task.spawn(function()
 
 		if State == "Mining" then
 
-			if getTotalResources() >=
+			-- Inventory full:
+			-- FIRST move normally to the tunnel wall.
+			if GetTotalResources() >=
 				INVENTORY_LIMIT then
 
 				TargetWreck = nil
 
 				State =
-					"GoingToSeller"
+					"GoingToWallBeforeSelling"
 
 				continue
 
 			end
 
-			-- Re-check the current wreck.
-			-- This also detects a disabled tier.
+			-- Continuously verify the current wreck.
 			if TargetWreck
-				and not isValidWreck(
+				and not IsValidWreck(
 					TargetWreck
 				) then
 
@@ -1637,7 +1544,7 @@ task.spawn(function()
 			if not TargetWreck then
 
 				TargetWreck =
-					getNearestWreck()
+					GetNearestWreck()
 
 				if not TargetWreck then
 
@@ -1651,26 +1558,23 @@ task.spawn(function()
 			end
 
 			local Position =
-				getPosition(
-					TargetWreck
-				)
+				GetPosition(TargetWreck)
 
 			local Root =
-				getRoot()
+				GetRoot()
 
-			if not Position
-				or not Root then
+			if not Position or not Root then
 
 				TargetWreck = nil
-
 				continue
 
 			end
 
-			local Distance = (
-				Root.Position -
-				Position
-			).Magnitude
+			local Distance =
+				(
+					Root.Position -
+					Position
+				).Magnitude
 
 			if Distance <=
 				WRECK_ARRIVAL_DISTANCE then
@@ -1683,21 +1587,42 @@ task.spawn(function()
 				Status.Text =
 					"Moving to wreck"
 
-				moveDirectlyTo(
+				MoveDirectlyTo(
 					Position
 				)
 
 			end
 
 		--==================================================
-		-- GOING TO SELLER
+		-- NORMAL MOVEMENT TO WALL BEFORE SELLING
+		--==================================================
+
+		elseif State ==
+			"GoingToWallBeforeSelling" then
+
+			local Reached =
+				MoveToWallNormally()
+
+			if not Enabled then
+				continue
+			end
+
+			if Reached then
+
+				State =
+					"GoingToSeller"
+
+			end
+
+		--==================================================
+		-- PATHFIND TO SELLER
 		--==================================================
 
 		elseif State ==
 			"GoingToSeller" then
 
 			local Reached =
-				goToSeller()
+				GoToSeller()
 
 			if not Enabled then
 				continue
@@ -1713,10 +1638,11 @@ task.spawn(function()
 
 			else
 
+				-- If seller pathfinding fails,
+				-- return to the wall normally and
+				-- try the seller again.
 				State =
-					"Mining"
-
-				TargetWreck = nil
+					"GoingToWallBeforeSelling"
 
 			end
 
@@ -1728,7 +1654,7 @@ task.spawn(function()
 			"Selling" then
 
 			local Finished =
-				waitForSelling()
+				WaitForSelling()
 
 			if not Enabled then
 				continue
@@ -1742,14 +1668,14 @@ task.spawn(function()
 			end
 
 		--==================================================
-		-- RETURNING
+		-- PATHFIND BACK TO WALL
 		--==================================================
 
 		elseif State ==
 			"Returning" then
 
 			local Reached =
-				goToWall()
+				ReturnToWall()
 
 			if not Enabled then
 				continue
@@ -1777,4 +1703,4 @@ task.spawn(function()
 
 end)
 
-applyWalkSpeed()
+ApplyWalkSpeed()
