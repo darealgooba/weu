@@ -30,7 +30,8 @@ local RESOURCE_NAMES = {
 	"Tungsten",
 	"Aquamarine",
 	"Uraninite",
-	"Bismuth"
+	"Bismuth",
+	"Jadeite"
 }
 
 --==================================================
