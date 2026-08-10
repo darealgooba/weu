@@ -28,7 +28,9 @@ local RESOURCE_NAMES = {
 	"LapisLazuli",
 	"Illite",
 	"Tungsten",
-	"Aquamarine"
+	"Aquamarine",
+	"Uraninite",
+	"Bismuth"
 }
 
 --==================================================
