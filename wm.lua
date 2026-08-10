@@ -12,7 +12,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 -- CONFIG
 --==================================================
 
-local INVENTORY_LIMIT = 85
+local INVENTORY_LIMIT = 135
 
 local WRECK_ARRIVAL_DISTANCE = 7
 local SELLER_ARRIVAL_DISTANCE = 7
