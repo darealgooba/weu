@@ -1,5 +1,6 @@
 --// WRECK MINER
 --// Full updated version
+--// Tier 1-6 + Tier 1 fallback
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -12,7 +13,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 -- CONFIG
 --==================================================
 
-local INVENTORY_LIMIT = 135
+local INVENTORY_LIMIT = 140
 
 local WRECK_ARRIVAL_DISTANCE = 7
 local SELLER_ARRIVAL_DISTANCE = 7
@@ -31,20 +32,27 @@ local RESOURCE_NAMES = {
 	"Aquamarine",
 	"Uraninite",
 	"Bismuth",
-	"Jadeite"
+	"Jadeite",
+	"Painite",
+	"Green Zircon"
 }
 
 --==================================================
 -- SETTINGS
 --==================================================
 
+-- Tier 1 is off by default because it is handled
+-- separately by the fallback setting.
 local TargetTiers = {
-	[1] = true,
+	[1] = false,
 	[2] = true,
 	[3] = true,
-	[4] = true
+	[4] = true,
+	[5] = true,
+	[6] = true
 }
 
+local FallbackToTier1 = true
 local PrioritizeHigherTiers = false
 local CurrentWalkSpeed = DEFAULT_WALKSPEED
 
@@ -60,7 +68,8 @@ local TargetWreck = nil
 -- GUI
 --==================================================
 
-local ExistingGui = PlayerGui:FindFirstChild("WreckMinerGui")
+local ExistingGui =
+	PlayerGui:FindFirstChild("WreckMinerGui")
 
 if ExistingGui then
 	ExistingGui:Destroy()
@@ -78,7 +87,7 @@ Gui.Parent = PlayerGui
 
 local Panel = Instance.new("Frame")
 Panel.Name = "Panel"
-Panel.Size = UDim2.fromOffset(290, 305)
+Panel.Size = UDim2.fromOffset(290, 420)
 Panel.Position = UDim2.fromOffset(30, 200)
 Panel.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 Panel.BorderSizePixel = 0
@@ -227,7 +236,15 @@ local function CreateTierSwitch(Tier, Y)
 	Frame.Name = "Tier" .. Tier .. "Switch"
 	Frame.Size = UDim2.fromOffset(48, 26)
 	Frame.Position = UDim2.new(1, -64, 0, Y - 1)
-	Frame.BackgroundColor3 = Color3.fromRGB(55, 175, 90)
+
+	if TargetTiers[Tier] then
+		Frame.BackgroundColor3 =
+			Color3.fromRGB(55, 175, 90)
+	else
+		Frame.BackgroundColor3 =
+			Color3.fromRGB(65, 65, 75)
+	end
+
 	Frame.BorderSizePixel = 0
 	Frame.Parent = Panel
 
@@ -238,8 +255,18 @@ local function CreateTierSwitch(Tier, Y)
 	local TierKnob = Instance.new("Frame")
 	TierKnob.Name = "Knob"
 	TierKnob.Size = UDim2.fromOffset(20, 20)
-	TierKnob.Position = UDim2.new(1, -23, 0, 3)
-	TierKnob.BackgroundColor3 = Color3.fromRGB(235, 235, 240)
+
+	if TargetTiers[Tier] then
+		TierKnob.Position =
+			UDim2.new(1, -23, 0, 3)
+	else
+		TierKnob.Position =
+			UDim2.fromOffset(3, 3)
+	end
+
+	TierKnob.BackgroundColor3 =
+		Color3.fromRGB(235, 235, 240)
+
 	TierKnob.BorderSizePixel = 0
 	TierKnob.Parent = Frame
 
@@ -265,7 +292,10 @@ local function CreateTierSwitch(Tier, Y)
 
 	Button.Activated:Connect(function()
 
-		TargetTiers[Tier] = not TargetTiers[Tier]
+		TargetTiers[Tier] =
+			not TargetTiers[Tier]
+
+		TargetWreck = nil
 
 		if TargetTiers[Tier] then
 
@@ -283,26 +313,6 @@ local function CreateTierSwitch(Tier, Y)
 			TierKnob.Position =
 				UDim2.fromOffset(3, 3)
 
-			-- Force a new search if the current target
-			-- belongs to the tier that was disabled.
-			if TargetWreck then
-
-				local Tiers = getWreckTiers()
-
-				if Tiers and Tiers[Tier] then
-
-					if TargetWreck:IsDescendantOf(
-						Tiers[Tier]
-					) then
-
-						TargetWreck = nil
-
-					end
-
-				end
-
-			end
-
 		end
 
 	end)
@@ -313,6 +323,105 @@ CreateTierSwitch(1, 113)
 CreateTierSwitch(2, 143)
 CreateTierSwitch(3, 173)
 CreateTierSwitch(4, 203)
+CreateTierSwitch(5, 233)
+CreateTierSwitch(6, 263)
+
+--==================================================
+-- FALLBACK TO TIER 1
+--==================================================
+
+local FallbackLabel = Instance.new("TextLabel")
+FallbackLabel.Name = "FallbackLabel"
+FallbackLabel.Size = UDim2.fromOffset(210, 25)
+FallbackLabel.Position = UDim2.fromOffset(14, 298)
+FallbackLabel.BackgroundTransparency = 1
+FallbackLabel.Text = "Fallback to Tier 1"
+FallbackLabel.TextColor3 =
+	Color3.fromRGB(220, 220, 225)
+FallbackLabel.TextSize = 14
+FallbackLabel.Font = Enum.Font.GothamMedium
+FallbackLabel.TextXAlignment =
+	Enum.TextXAlignment.Left
+FallbackLabel.Parent = Panel
+
+local FallbackSwitch = Instance.new("Frame")
+FallbackSwitch.Name = "FallbackSwitch"
+FallbackSwitch.Size = UDim2.fromOffset(48, 26)
+FallbackSwitch.Position = UDim2.new(1, -64, 0, 297)
+
+if FallbackToTier1 then
+	FallbackSwitch.BackgroundColor3 =
+		Color3.fromRGB(55, 175, 90)
+else
+	FallbackSwitch.BackgroundColor3 =
+		Color3.fromRGB(65, 65, 75)
+end
+
+FallbackSwitch.BorderSizePixel = 0
+FallbackSwitch.Parent = Panel
+
+local FallbackCorner = Instance.new("UICorner")
+FallbackCorner.CornerRadius = UDim.new(1, 0)
+FallbackCorner.Parent = FallbackSwitch
+
+local FallbackKnob = Instance.new("Frame")
+FallbackKnob.Name = "Knob"
+FallbackKnob.Size = UDim2.fromOffset(20, 20)
+
+if FallbackToTier1 then
+	FallbackKnob.Position =
+		UDim2.new(1, -23, 0, 3)
+else
+	FallbackKnob.Position =
+		UDim2.fromOffset(3, 3)
+end
+
+FallbackKnob.BackgroundColor3 =
+	Color3.fromRGB(235, 235, 240)
+
+FallbackKnob.BorderSizePixel = 0
+FallbackKnob.Parent = FallbackSwitch
+
+local FallbackKnobCorner = Instance.new("UICorner")
+FallbackKnobCorner.CornerRadius = UDim.new(1, 0)
+FallbackKnobCorner.Parent = FallbackKnob
+
+local FallbackButton = Instance.new("TextButton")
+FallbackButton.Name = "Button"
+FallbackButton.Size = UDim2.fromScale(1, 1)
+FallbackButton.BackgroundTransparency = 1
+FallbackButton.BorderSizePixel = 0
+FallbackButton.Text = ""
+FallbackButton.AutoButtonColor = false
+FallbackButton.ZIndex = 10
+FallbackButton.Parent = FallbackSwitch
+
+FallbackButton.Activated:Connect(function()
+
+	FallbackToTier1 =
+		not FallbackToTier1
+
+	TargetWreck = nil
+
+	if FallbackToTier1 then
+
+		FallbackSwitch.BackgroundColor3 =
+			Color3.fromRGB(55, 175, 90)
+
+		FallbackKnob.Position =
+			UDim2.new(1, -23, 0, 3)
+
+	else
+
+		FallbackSwitch.BackgroundColor3 =
+			Color3.fromRGB(65, 65, 75)
+
+		FallbackKnob.Position =
+			UDim2.fromOffset(3, 3)
+
+	end
+
+end)
 
 --==================================================
 -- PRIORITIZE HIGHER TIERS
@@ -320,21 +429,24 @@ CreateTierSwitch(4, 203)
 
 local PriorityLabel = Instance.new("TextLabel")
 PriorityLabel.Name = "PriorityLabel"
-PriorityLabel.Size = UDim2.fromOffset(190, 25)
-PriorityLabel.Position = UDim2.fromOffset(14, 243)
+PriorityLabel.Size = UDim2.fromOffset(210, 25)
+PriorityLabel.Position = UDim2.fromOffset(14, 333)
 PriorityLabel.BackgroundTransparency = 1
 PriorityLabel.Text = "Prioritize Higher Tiers"
-PriorityLabel.TextColor3 = Color3.fromRGB(220, 220, 225)
+PriorityLabel.TextColor3 =
+	Color3.fromRGB(220, 220, 225)
 PriorityLabel.TextSize = 14
 PriorityLabel.Font = Enum.Font.GothamMedium
-PriorityLabel.TextXAlignment = Enum.TextXAlignment.Left
+PriorityLabel.TextXAlignment =
+	Enum.TextXAlignment.Left
 PriorityLabel.Parent = Panel
 
 local PrioritySwitch = Instance.new("Frame")
 PrioritySwitch.Name = "PrioritySwitch"
 PrioritySwitch.Size = UDim2.fromOffset(48, 26)
-PrioritySwitch.Position = UDim2.new(1, -64, 0, 242)
-PrioritySwitch.BackgroundColor3 = Color3.fromRGB(65, 65, 75)
+PrioritySwitch.Position = UDim2.new(1, -64, 0, 332)
+PrioritySwitch.BackgroundColor3 =
+	Color3.fromRGB(65, 65, 75)
 PrioritySwitch.BorderSizePixel = 0
 PrioritySwitch.Parent = Panel
 
@@ -346,7 +458,8 @@ local PriorityKnob = Instance.new("Frame")
 PriorityKnob.Name = "Knob"
 PriorityKnob.Size = UDim2.fromOffset(20, 20)
 PriorityKnob.Position = UDim2.fromOffset(3, 3)
-PriorityKnob.BackgroundColor3 = Color3.fromRGB(235, 235, 240)
+PriorityKnob.BackgroundColor3 =
+	Color3.fromRGB(235, 235, 240)
 PriorityKnob.BorderSizePixel = 0
 PriorityKnob.Parent = PrioritySwitch
 
@@ -642,7 +755,7 @@ local function GetWreckTiers()
 
 	local Tiers = {}
 
-	for Tier = 1, 4 do
+	for Tier = 1, 6 do
 
 		Tiers[Tier] =
 			WreckContainer:FindFirstChild(
@@ -743,26 +856,10 @@ local function GetWrecksInTier(Tier)
 		Tier:GetChildren()
 	) do
 
-		local Wreck = nil
-
-		-- Preserve the existing WreckModel
-		-- lookup behavior.
-		if Object:IsA("NumberValue")
-			or Object:IsA("IntValue") then
-
-			Wreck =
-				Object:FindFirstChild(
-					"WreckModel"
-				)
-
-		else
-
-			Wreck =
-				Object:FindFirstChild(
-					"WreckModel"
-				)
-
-		end
+		local Wreck =
+			Object:FindFirstChild(
+				"WreckModel"
+			)
 
 		if Wreck
 			and Wreck:IsA("Model")
@@ -810,7 +907,8 @@ local function IsValidWreck(Wreck)
 		return false
 	end
 
-	for Tier = 1, 4 do
+	-- Normal enabled tiers.
+	for Tier = 1, 6 do
 
 		if TargetTiers[Tier]
 			and Tiers[Tier]
@@ -821,6 +919,36 @@ local function IsValidWreck(Wreck)
 			return true
 
 		end
+
+	end
+
+	-- Tier 1 fallback.
+	if FallbackToTier1
+		and Tiers[1]
+		and Wreck:IsDescendantOf(
+			Tiers[1]
+		) then
+
+		-- Only consider Tier 1 valid when
+		-- no enabled higher-tier wreck exists.
+		for Tier = 2, 6 do
+
+			if TargetTiers[Tier]
+				and Tiers[Tier] then
+
+				if #GetWrecksInTier(
+					Tiers[Tier]
+				) > 0 then
+
+					return false
+
+				end
+
+			end
+
+		end
+
+		return true
 
 	end
 
@@ -878,6 +1006,40 @@ local function GetNearestWreckInTier(Tier)
 end
 
 --==================================================
+-- CHECK HIGHER TIERS
+--==================================================
+
+local function HasHigherTierWreck()
+
+	local Tiers =
+		GetWreckTiers()
+
+	if not Tiers then
+		return false
+	end
+
+	for Tier = 2, 6 do
+
+		if TargetTiers[Tier]
+			and Tiers[Tier] then
+
+			if #GetWrecksInTier(
+				Tiers[Tier]
+			) > 0 then
+
+				return true
+
+			end
+
+		end
+
+	end
+
+	return false
+
+end
+
+--==================================================
 -- FIND WRECK
 --==================================================
 
@@ -890,10 +1052,13 @@ local function GetNearestWreck()
 		return nil
 	end
 
-	-- Higher-tier priority.
+	--==================================================
+	-- NORMAL HIGHER-TIER TARGETING
+	--==================================================
+
 	if PrioritizeHigherTiers then
 
-		for Tier = 4, 1, -1 do
+		for Tier = 6, 2, -1 do
 
 			if not TargetTiers[Tier] then
 				continue
@@ -910,58 +1075,57 @@ local function GetNearestWreck()
 
 		end
 
-		return nil
+	else
 
-	end
+		local Root = GetRoot()
 
-	-- Normal nearest-wreck behavior.
-	local Root = GetRoot()
-
-	if not Root then
-		return nil
-	end
-
-	local Nearest = nil
-	local NearestDistance = math.huge
-
-	for Tier = 1, 4 do
-
-		if not TargetTiers[Tier] then
-			continue
+		if not Root then
+			return nil
 		end
 
-		local TierFolder =
-			Tiers[Tier]
+		local Nearest = nil
+		local NearestDistance = math.huge
 
-		if not TierFolder then
-			continue
-		end
+		for Tier = 2, 6 do
 
-		for _, Wreck in ipairs(
-			GetWrecksInTier(
-				TierFolder
-			)
-		) do
+			if not TargetTiers[Tier] then
+				continue
+			end
 
-			local Position =
-				GetPosition(Wreck)
+			local TierFolder =
+				Tiers[Tier]
 
-			if Position then
+			if not TierFolder then
+				continue
+			end
 
-				local Distance =
-					(
-						Root.Position -
-						Position
-					).Magnitude
+			for _, Wreck in ipairs(
+				GetWrecksInTier(
+					TierFolder
+				)
+			) do
 
-				if Distance <
-					NearestDistance then
+				local Position =
+					GetPosition(Wreck)
 
-					NearestDistance =
-						Distance
+				if Position then
 
-					Nearest =
-						Wreck
+					local Distance =
+						(
+							Root.Position -
+							Position
+						).Magnitude
+
+					if Distance <
+						NearestDistance then
+
+						NearestDistance =
+							Distance
+
+						Nearest =
+							Wreck
+
+					end
 
 				end
 
@@ -969,9 +1133,43 @@ local function GetNearestWreck()
 
 		end
 
+		if Nearest then
+			return Nearest
+		end
+
 	end
 
-	return Nearest
+	--==================================================
+	-- TIER 1 FALLBACK
+	--==================================================
+
+	if FallbackToTier1 then
+
+		-- Only use Tier 1 when no enabled
+		-- higher-tier wreck exists.
+		if not HasHigherTierWreck() then
+
+			return GetNearestWreckInTier(
+				Tiers[1]
+			)
+
+		end
+
+	end
+
+	--==================================================
+	-- NORMAL TIER 1 TARGETING
+	--==================================================
+
+	if TargetTiers[1] then
+
+		return GetNearestWreckInTier(
+			Tiers[1]
+		)
+
+	end
+
+	return nil
 
 end
 
@@ -1515,8 +1713,6 @@ task.spawn(function()
 
 		if State == "Mining" then
 
-			-- Inventory full:
-			-- FIRST move normally to the tunnel wall.
 			if GetTotalResources() >=
 				INVENTORY_LIMIT then
 
@@ -1595,7 +1791,7 @@ task.spawn(function()
 			end
 
 		--==================================================
-		-- NORMAL MOVEMENT TO WALL BEFORE SELLING
+		-- NORMAL MOVEMENT TO WALL
 		--==================================================
 
 		elseif State ==
@@ -1639,9 +1835,6 @@ task.spawn(function()
 
 			else
 
-				-- If seller pathfinding fails,
-				-- return to the wall normally and
-				-- try the seller again.
 				State =
 					"GoingToWallBeforeSelling"
 
@@ -1703,5 +1896,9 @@ task.spawn(function()
 	end
 
 end)
+
+--==================================================
+-- INITIALIZE
+--==================================================
 
 ApplyWalkSpeed()
