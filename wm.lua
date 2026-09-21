@@ -12,7 +12,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 -- CONFIG
 --==================================================
 
-local INVENTORY_LIMIT = 140
+local INVENTORY_LIMIT = 365
 
 local WRECK_ARRIVAL_DISTANCE = 7
 local SELLER_ARRIVAL_DISTANCE = 7
@@ -30,7 +30,6 @@ local RESOURCE_NAMES = {
 	"Tungsten",
 	"Aquamarine",
 	"Uraninite",
-	"Bismuth"
 	"Bismuth",
 	"Jadeite",
 	"Painite",
